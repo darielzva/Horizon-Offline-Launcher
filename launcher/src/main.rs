@@ -5577,7 +5577,7 @@ impl Render for Launcher {
         if self.asking_owner() {
             root = root.child(self.owner_screen(cx));
         }
-        if let Some(opening) = &self.opening {
+ if let Some(opening) = &self.opening {
             // The wordmark arrives letter by letter, then gives way to the launcher; a click or
             // a key skips ahead.
             let gone = 1. - ease_out_cubic(reveal / 0.6);
@@ -5630,6 +5630,11 @@ impl Render for Launcher {
                         ))
                     }),
             );
+        }
+
+        // ↓↓↓ AQUÍ va el chequeo del login obligatorio ↓↓↓
+        if self.needs_first_login {
+            return self.render_first_login(cx);
         }
         div()
             .flex()
