@@ -219,6 +219,11 @@ enum Load<T> {
 const LOG_LINES: usize = 2000;
 
 struct Launcher {
+    /// true mientras no exista ninguna cuenta offline → muestra la pantalla de login
+    needs_first_login: bool,
+    /// texto que el usuario está escribiendo en la pantalla de login
+    login_input: String,
+    login_error: Option<String>, 
     theme: Theme,
     page: Page,
     /// How many times the page changed, for the page transition.
@@ -365,6 +370,9 @@ struct Launcher {
     root_focus: FocusHandle,
     /// Microsoft accounts (accounts.json), the sign-in under way and what it last showed.
     accounts: Accounts,
+    needs_first_login: bool,
+    login_input: String,
+    login_error: Option<String>,
     auth_status: HashMap<String, account::session::Status>,
     auth_progress: HashMap<String, account::session::Phase>,
     profile_heads: profile_heads::Heads,
@@ -680,6 +688,9 @@ impl Launcher {
             palette: None,
             toast_seen: None,
             accounts: Accounts::load(),
+            needs_first_login: Accounts::load().offline.is_empty(),
+            login_input: String::new(),
+            login_error: None,
             auth_status: HashMap::new(),
             auth_progress: HashMap::new(),
             profile_heads: profile_heads::Heads::default(),
