@@ -36,175 +36,268 @@ impl Launcher {
     }
 
     /// The player now, the offline names and the field to add one.
-    fn glass_who_plays(&mut self, cx: &mut Context<Self>) -> Div {
-        let t = self.theme;
-        let now = self.accounts.player();
-        let (uuid, name, status) = match &now {
-            Player::Microsoft(uuid) => (
-                Some(uuid.clone()),
-                self.accounts
-                    .accounts
-                    .iter()
-                    .find(|a| &a.uuid == uuid)
-                    .map(|a| a.name.clone())
-                    .unwrap_or_default(),
-                (Tone::Live, tr("Microsoft account · online servers too")),
-            ),
-            Player::Offline(name) => (
-                None,
-                name.clone(),
-                (Tone::Off, tr("Offline · single player and LAN worlds")),
-            ),
-            Player::GameName => (
-                None,
-                self.offline_name.clone().unwrap_or_else(|| "Player".into()),
-                (Tone::Off, tr("Offline · single player and LAN worlds")),
-            ),
-        };
-        let head = div()
-            .flex_none()
-            .size(px(80.))
-            .rounded(px(20.))
-            .overflow_hidden()
+fn glass_who_plays(&mut self, cx: &mut Context<Self>) -> Div {
+    let t = self.theme;
+    let now = self.accounts.player();
+    let (uuid, name, status) = match &now {
+        Player::Microsoft(uuid) => (
+            Some(uuid.clone()),
+            self.accounts
+                .accounts
+                .iter()
+                .find(|a| &a.uuid == uuid)
+                .map(|a| a.name.clone())
+                .unwrap_or_default(),
+            (Tone::Live, tr("Microsoft account · online servers too")),
+        ),
+        Player::Offline(name) => (
+            None,
+            name.clone(),
+            (Tone::Off, tr("Offline · single player and LAN worlds")),
+        ),
+        Player::GameName => (
+            None,
+            self.offline_name.clone().unwrap_or_else(|| "Player".into()),
+            (Tone::Off, tr("Offline · single player and LAN worlds")),
+        ),
+    };
+
+    let head = div()
+        .flex_none()
+        .size(px(80.))
+        .rounded(px(20.))
+        .overflow_hidden()
+        .child(
+            self.profile_heads
+                .draw(uuid.as_deref(), 80., self.scale, &t),
+        );
+
+    let header = div().flex().items_center().gap(px(20.)).child(head).child(
+        div()
+            .flex()
+            .flex_col()
+            .min_w_0()
+            .gap(px(10.))
             .child(
-                self.profile_heads
-                    .draw(uuid.as_deref(), 80., self.scale, &t),
-            );
-        let header = div().flex().items_center().gap(px(20.)).child(head).child(
+                div()
+                    .font_family(horizon_theme::glass::DISPLAY_FONT)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(32.))
+                    .line_height(px(32.))
+                    .text_color(white(ink::FULL))
+                    .truncate()
+                    .child(name),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_start()
+                    .gap(px(8.))
+                    .child(ui::dot(status.0).mt(px(7.)))
+                    .child(
+                        ui::text(14., FontWeight::NORMAL, 0.65)
+                            .flex_1()
+                            .min_w_0()
+                            .line_height(px(21.))
+                            .child(status.1),
+                    ),
+            ),
+    );
+
+    // Lista de cuentas offline (más limpia, estilo AstralRinth)
+    let mut list = div().flex().flex_col().gap(px(6.)).mt(px(16.));
+
+    for (i, offline) in self.accounts.offline.clone().into_iter().enumerate() {
+        let plays = now == Player::Offline(offline.clone());
+        let who = offline.clone();
+        let skin = offline.clone();
+        let forget = offline.clone();
+
+        list = list.child(
             div()
+                .id(SharedString::from(format!("offline-row-{i}")))
+                .group("account-row")
                 .flex()
-                .flex_col()
-                .min_w_0()
-                .gap(px(10.))
+                .items_center()
+                .gap(px(12.))
+                .h(px(52.))
+                .px(px(10.))
+                .rounded(px(12.))
+                .when(plays, |d| d.bg(white(0.12)))
+                .when(!plays, |d| {
+                    d.bg(white(0.04))
+                        .cursor_pointer()
+                        .hover(|s| s.bg(white(0.08)))
+                })
                 .child(
                     div()
-                        .font_family(horizon_theme::glass::DISPLAY_FONT)
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_size(px(32.))
-                        .line_height(px(32.))
-                        .text_color(white(ink::FULL))
-                        .truncate()
-                        .child(name),
+                        .flex_none()
+                        .size(px(36.))
+                        .rounded(px(9.))
+                        .overflow_hidden()
+                        .child(self.profile_heads.draw(None, 36., self.scale, &t)),
                 )
                 .child(
                     div()
-                        .flex()
-                        .items_start()
-                        .gap(px(8.))
-                        .child(ui::dot(status.0).mt(px(7.)))
+                        .flex_1()
+                        .min_w_0()
                         .child(
-                            ui::text(14., FontWeight::NORMAL, 0.65)
-                                .flex_1()
-                                .min_w_0()
-                                .line_height(px(21.))
-                                .child(status.1),
+                            ui::text(14., FontWeight::MEDIUM, ink::FULL)
+                                .truncate()
+                                .child(offline.clone()),
+                        )
+                        .child(
+                            ui::text(12., FontWeight::NORMAL, 0.45)
+                                .child(tr("Offline")),
                         ),
-                ),
-        );
-
-        // The chips: each offline name, the game's own name, then the field.
-        let mut chips = div().flex().flex_wrap().gap(px(8.)).mt(px(12.));
-        for (i, offline) in self.accounts.offline.clone().into_iter().enumerate() {
-            let plays = now == Player::Offline(offline.clone());
-            let (who, skin, forget) = (offline.clone(), offline.clone(), offline.clone());
-            chips = chips.child(
-                self.name_chip(
-                    SharedString::from(format!("offline-chip-{i}")),
-                    offline,
-                    plays,
+                )
+                // Acciones que aparecen al pasar el mouse
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(2.))
+                        .opacity(0.)
+                        .group_hover("account-row", |s| s.opacity(1.))
+                        .child(self.chip_icon(
+                            SharedString::from(format!("offline-skin-{i}")),
+                            "pencil-edit-02",
+                            cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                cx.stop_propagation();
+                                this.open_skin(skin.clone());
+                                cx.notify();
+                            }),
+                        ))
+                        .when(!plays, |d| {
+                            d.child(self.chip_icon(
+                                SharedString::from(format!("offline-forget-{i}")),
+                                "delete-02", // o "cancel-01" si no existe delete-02
+                                cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                    cx.stop_propagation();
+                                    this.forget_offline(&forget);
+                                    cx.notify();
+                                }),
+                            ))
+                        }),
                 )
                 .when(!plays, |d| {
                     d.on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.play_as(Player::Offline(who.clone()));
                         cx.notify();
                     }))
-                })
-                .child(self.chip_icon(
-                    SharedString::from(format!("offline-skin-{i}")),
-                    "pencil-edit-02",
-                    cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        cx.stop_propagation();
-                        this.open_skin(skin.clone());
-                        cx.notify();
-                    }),
-                ))
-                .when(!plays, |d| {
-                    d.child(self.chip_icon(
-                        SharedString::from(format!("offline-forget-{i}")),
-                        "cancel-01",
-                        cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            cx.stop_propagation();
-                            this.forget_offline(&forget);
-                            cx.notify();
-                        }),
-                    ))
                 }),
-            );
-        }
-        if let Some(made_up) = self.offline_name.clone() {
-            let plays = now == Player::GameName;
-            chips = chips.child(
-                self.name_chip("game-name-chip", made_up, plays)
-                    .when(!plays, |d| {
-                        d.on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                            this.play_as(Player::GameName);
-                            cx.notify();
-                        }))
-                    })
-                    .child(self.chip_icon(
-                        "game-name-new".into(),
-                        "refresh",
-                        cx.listener(|this, _: &ClickEvent, _, cx| {
-                            cx.stop_propagation();
-                            match instances::new_player_name() {
-                                Ok(name) => this.offline_name = Some(name),
-                                Err(e) => this.sign_in_state = Some(SignInState::Done(Err(e))),
-                            }
-                            cx.notify();
-                        }),
-                    )),
-            );
-        }
-        let add = div()
-            .flex()
-            .items_center()
-            .h(px(44.))
-            .pr(px(6.))
-            .rounded(px(radius::ROW))
-            .bg(white(0.05))
-            .child(self.field(Field::OfflineName, tr("Add a name"), 150., cx))
-            .child(
-                ui::quiet("offline-add", tr("Add"), 32., &t)
-                    .px(px(12.))
-                    .text_size(px(13.))
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        this.offline_name_enter();
-                        cx.notify();
-                    })),
-            );
-        chips = chips.child(add);
-        div()
-            .flex()
-            .flex_col()
-            .child(header)
-            .child(
-                ui::text(13., FontWeight::MEDIUM, 0.6)
-                    .mt(px(20.))
-                    .child(tr("Offline names")),
-            )
-            .child(chips)
-            .child(
-                ui::text(13., FontWeight::NORMAL, 0.5)
-                    .mt(px(10.))
-                    .line_height(px(19.5))
-                    .child(tr(
-                        "3 to 16 letters, numbers or underscores. Switch names from the top bar \
-                         too. Online servers don't take offline names.",
-                    )),
-            )
-            .children(self.skin_panel(cx).map(|p| p.mt(px(12.))))
+        );
     }
 
+    // Nombre generado por el juego
+    if let Some(made_up) = self.offline_name.clone() {
+        let plays = now == Player::GameName;
+        list = list.child(
+            div()
+                .id("game-name-row")
+                .group("account-row")
+                .flex()
+                .items_center()
+                .gap(px(12.))
+                .h(px(52.))
+                .px(px(10.))
+                .rounded(px(12.))
+                .when(plays, |d| d.bg(white(0.12)))
+                .when(!plays, |d| {
+                    d.bg(white(0.04))
+                        .cursor_pointer()
+                        .hover(|s| s.bg(white(0.08)))
+                })
+                .child(
+                    div()
+                        .flex_none()
+                        .size(px(36.))
+                        .rounded(px(9.))
+                        .overflow_hidden()
+                        .child(self.profile_heads.draw(None, 36., self.scale, &t)),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .child(
+                            ui::text(14., FontWeight::MEDIUM, ink::FULL)
+                                .truncate()
+                                .child(made_up.clone()),
+                        )
+                        .child(
+                            ui::text(12., FontWeight::NORMAL, 0.45)
+                                .child(tr("Generated name")),
+                        ),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .opacity(0.)
+                        .group_hover("account-row", |s| s.opacity(1.))
+                        .child(self.chip_icon(
+                            "game-name-new".into(),
+                            "refresh",
+                            cx.listener(|this, _: &ClickEvent, _, cx| {
+                                cx.stop_propagation();
+                                match instances::new_player_name() {
+                                    Ok(name) => this.offline_name = Some(name),
+                                    Err(e) => this.sign_in_state = Some(SignInState::Done(Err(e))),
+                                }
+                                cx.notify();
+                            }),
+                        )),
+                )
+                .when(!plays, |d| {
+                    d.on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        this.play_as(Player::GameName);
+                        cx.notify();
+                    }))
+                }),
+        );
+    }
+
+    // Campo para añadir nombre
+    let add = div()
+        .flex()
+        .items_center()
+        .h(px(48.))
+        .mt(px(8.))
+        .px(px(6.))
+        .rounded(px(12.))
+        .bg(white(0.04))
+        .child(self.field(Field::OfflineName, tr("Add offline name…"), 180., cx))
+        .child(
+            ui::quiet("offline-add", tr("Add"), 36., &t)
+                .px(px(14.))
+                .text_size(px(13.))
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                    this.offline_name_enter();
+                    cx.notify();
+                })),
+        );
+
+    div()
+        .flex()
+        .flex_col()
+        .child(header)
+        .child(
+            ui::text(13., FontWeight::MEDIUM, 0.55)
+                .mt(px(24.))
+                .child(tr("Offline accounts")),
+        )
+        .child(list)
+        .child(add)
+        .child(
+            ui::text(12., FontWeight::NORMAL, 0.4)
+                .mt(px(10.))
+                .line_height(px(18.))
+                .child(tr(
+                    "3–16 letters, numbers or underscores. You can also switch from the top bar.",
+                )),
+        )
+        .children(self.skin_panel(cx).map(|p| p.mt(px(16.))))
+}
     /// An offline name's chip: its head and name, a tick on the one playing; white at 14 % for
     /// that one, 5 % (8 % under the pointer) for the others.
     fn name_chip(&self, id: impl Into<SharedString>, name: String, plays: bool) -> Stateful<Div> {
